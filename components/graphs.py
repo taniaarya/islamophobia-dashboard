@@ -2,15 +2,16 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html 
 import dash_bootstrap_components as dbc
+import pandas as pd
+import datetime as dt
 import plotly.express as px
 import plotly.graph_objects as go
 import country_converter as coco
-import pandas as pd
 from urllib.request import urlopen
 import json
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-import datetime as dt
+
 import requests
 
 df_all = pd.read_csv("https://raw.githubusercontent.com/taniaarya/islamophobia-dashboard/main/hate_speech2.csv")
@@ -61,7 +62,7 @@ tweet_count = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.H1(children="-", id="tweet-total"),
+                html.H1(children=df_count.shape[0], id="tweet-total"),
                 html.H4("hate tweets detected")                        
             ]
         ),
@@ -70,7 +71,7 @@ tweet_count = dbc.Card(
 user_count = dbc.Card( 
     dbc.CardBody(
         [
-                html.H1(children="-", id="user-total"),
+                html.H1(children=len(df_count.screen_name.unique()), id="user-total"),
                 html.H4("different users")
         ]
     ),
@@ -81,7 +82,7 @@ us_tweet_count = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.H1(children="-", id="us-tweet-total"),
+                html.H1(children=df_us.shape[0], id="us-tweet-total"),
                 html.H4("hate tweets detected")                        
             ]
         ),
@@ -90,7 +91,7 @@ us_tweet_count = dbc.Card(
 us_user_count = dbc.Card( 
     dbc.CardBody(
         [
-                html.H1(children="-", id="us-user-total"),
+                html.H1(children=len(df_us.screen_name.unique()), id="us-user-total"),
                 html.H4("different users")
         ]
     ),
@@ -112,15 +113,30 @@ us_headlines = dbc.Card(
             html.Div(id="us-headlines") 
         ]
     )
-   
 )
 
+df_count["create_dt"] = pd.to_datetime(df_count['create_dt'])
+df_temp_world =  df_count['create_dt'].dt.floor('d').value_counts().rename_axis('date').reset_index(name='count')
+df_temp_world = df_temp_world.sort_values(by=["date"])
+fig_time = px.line(df_temp_world, x="date", y="count")
+fig_time.update_layout(xaxis_title="Date", yaxis_title="Count", title=f"Total Tweet Count")  
+fig_time.update(layout=dict(title=dict(x=0.5)))
+
 world_time = dcc.Graph(
-                        id='world-timeseries'
+                        id='world-timeseries',
+                        figure = fig_time
                     )
 
+df_us["create_dt"] = pd.to_datetime(df_us['create_dt'])
+df_temp_us =  df_us['create_dt'].dt.floor('d').value_counts().rename_axis('date').reset_index(name='count')
+df_temp_us = df_temp_us.sort_values(by=["date"])
+fig_time = px.line(df_temp_us, x="date", y="count")
+fig_time.update_layout(xaxis_title="Date", yaxis_title="Count", title=f"Total Tweet Count for USA")  
+fig_time.update(layout=dict(title=dict(x=0.5)))
+
 us_time = dcc.Graph(
-                        id='us-timeseries'
+                        id='us-timeseries',
+                        figure = fig_time
                     )
 
 
@@ -155,24 +171,26 @@ def register_graph_callbacks(app):
         if tab == 'world':
             return html.Div([
                 location_graph,
+                html.H2(["Click on a country to see more details"], style={"text-align": "center"}),
                 html.Div([tweet_count], className= "card text-white bg-dark mb-3", style={"width": "50%",
   "margin": "0 auto", "float": "left", "text-align": "center", "padding-left": "50px"}),
                 html.Div([user_count], className= "card text-white bg-dark mb-3", style={ "width": "50%",
   "margin": "0 auto", "overflow": "hidden", "text-align": "center", "padding-left": "25px", "padding-right": "50px"}),
+                html.H2(["Click on a point to see headlines for that date"], style={"text-align": "center", "padding-top": "50px"}),
                 world_time,
                 headlines
-                #html.Div(id="world-headlines")
             ], style = {"overflow":"hidden"}) 
         elif tab == 'us':
             return html.Div([
                 us_graph,
+                html.H2(["Click on a county to see more details"], style={"text-align": "center"}),
                 html.Div([us_tweet_count], className= "card text-white bg-dark mb-3", style={"width": "50%",
   "margin": "0 auto", "float": "left", "text-align": "center", "padding-left": "50px"}),
                 html.Div([us_user_count], className= "card text-white bg-dark mb-3", style={ "width": "50%",
   "margin": "0 auto", "overflow": "hidden", "text-align": "center", "padding-left": "25px", "padding-right": "50px"}),
+  html.H2(["Click on a point to see headlines for that date"], style={"text-align": "center", "padding-top": "50px"}),
                 us_time,
                 us_headlines
-                #html.Div(id="world-headlines")
             ], style = {"overflow":"hidden"}) 
 
     @app.callback(
@@ -235,6 +253,8 @@ def register_graph_callbacks(app):
         df_temp =  df['create_dt'].dt.floor('d').value_counts().rename_axis('date').reset_index(name='count')
         df_temp = df_temp.sort_values(by=["date"])
         fig = px.line(df_temp, x="date", y="count")
+        fig.update_layout(xaxis_title="Date", yaxis_title="Count", title=f"Total Tweet Count for {country}")  
+        fig.update(layout=dict(title=dict(x=0.5)))
 
         return fig
         
@@ -253,6 +273,8 @@ def register_graph_callbacks(app):
         df_temp =  df['create_dt'].dt.floor('d').value_counts().rename_axis('date').reset_index(name='count')
         df_temp = df_temp.sort_values(by=["date"])
         fig = px.line(df_temp, x="date", y="count")
+        fig.update_layout(xaxis_title="Date", yaxis_title="Count", title=f"Total Tweet Count for County {fips}")  
+        fig.update(layout=dict(title=dict(x=0.5)))
         
         return fig
 
